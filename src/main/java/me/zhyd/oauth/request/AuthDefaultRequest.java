@@ -40,27 +40,8 @@ public abstract class AuthDefaultRequest implements AuthRequest {
             throw new AuthException(AuthResponseStatus.PARAMETER_INCOMPLETE, source);
         }
         // 校验配置合法性
-        AuthChecker.checkConfig(config, source);
+        this.checkConfig(config);
     }
-
-    /**
-     * 获取access token
-     *
-     * @param authCallback 授权成功后的回调参数
-     * @return token
-     * @see AuthDefaultRequest#authorize()
-     * @see AuthDefaultRequest#authorize(String)
-     */
-    protected abstract AuthToken getAccessToken(AuthCallback authCallback);
-
-    /**
-     * 使用token换取用户信息
-     *
-     * @param authToken token信息
-     * @return 用户信息
-     * @see AuthDefaultRequest#getAccessToken(AuthCallback)
-     */
-    protected abstract AuthUser getUserInfo(AuthToken authToken);
 
     /**
      * 统一的登录入口。当通过{@link AuthDefaultRequest#authorize(String)}授权成功后，会跳转到调用方的相关回调方法中
@@ -70,7 +51,7 @@ public abstract class AuthDefaultRequest implements AuthRequest {
      * @return AuthResponse
      */
     @Override
-    public AuthResponse login(AuthCallback authCallback) {
+    public AuthResponse<AuthUser> login(AuthCallback authCallback) {
         try {
             checkCode(authCallback);
             if (!config.isIgnoreCheckState()) {
@@ -79,7 +60,7 @@ public abstract class AuthDefaultRequest implements AuthRequest {
 
             AuthToken authToken = this.getAccessToken(authCallback);
             AuthUser user = this.getUserInfo(authToken);
-            return AuthResponse.builder().code(AuthResponseStatus.SUCCESS.getCode()).data(user).build();
+            return AuthResponse.<AuthUser>builder().code(AuthResponseStatus.SUCCESS.getCode()).data(user).build();
         } catch (Exception e) {
             Log.error("Failed to login with oauth authorization.", e);
             return this.responseError(e);
@@ -96,7 +77,7 @@ public abstract class AuthDefaultRequest implements AuthRequest {
      * @param e 具体的异常
      * @return AuthResponse
      */
-    AuthResponse responseError(Exception e) {
+    AuthResponse<AuthUser> responseError(Exception e) {
         int errorCode = AuthResponseStatus.FAILURE.getCode();
         String errorMsg = e.getMessage();
         if (e instanceof AuthException) {
@@ -106,7 +87,7 @@ public abstract class AuthDefaultRequest implements AuthRequest {
                 errorMsg = authException.getErrorMsg();
             }
         }
-        return AuthResponse.builder().code(errorCode).msg(errorMsg).build();
+        return AuthResponse.<AuthUser>builder().code(errorCode).msg(errorMsg).build();
     }
 
     /**
@@ -293,6 +274,10 @@ public abstract class AuthDefaultRequest implements AuthRequest {
         }
         String scopeStr = String.join(separator, scopes);
         return encode ? UrlUtil.urlEncode(scopeStr) : scopeStr;
+    }
+
+    protected void checkConfig(AuthConfig config) {
+        AuthChecker.checkConfig(config, source);
     }
 
 }
